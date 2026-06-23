@@ -1,6 +1,13 @@
 'use client'
+console.log('HOME PAGE RENDER')
 
 import { useRef } from 'react'
+import { useEffect, useState } from 'react'
+
+type FileItem = {
+  id: string
+  name: string
+}
 
 export default function HomePage() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -26,22 +33,61 @@ export default function HomePage() {
     }
   }
 
-  return (
-    <div style={styles.container}>
-      <input
-        ref={inputRef}
-        type="file"
-        hidden
-        onChange={handleUpload}
-      />
+  const [files, setFiles] = useState<FileItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-      <button
-        style={styles.button}
-        onClick={() => inputRef.current?.click()}
-      >
-        Upload File
-      </button>
-    </div>
+  useEffect(() => {
+    console.log("useEffect");
+    async function fetchFiles() {
+      
+      try {
+        const res = await fetch('/api/files')
+        const data = await res.json()
+        console.log("RAW API RESPONSE:", data)
+        setFiles(data.files || [])
+      } catch (err) {
+        console.error('Error loading files:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchFiles()
+  }, [])
+
+
+  return (
+    <>
+      <div style={styles.container}>
+        <input
+          ref={inputRef}
+          type="file"
+          hidden
+          onChange={handleUpload}
+        />
+
+        <button
+          style={styles.button}
+          onClick={() => inputRef.current?.click()}
+        >
+          Upload File
+        </button>
+      </div>
+
+      <div style={{ padding: 40 }}>
+        <h1>My Drive Files</h1>
+
+        {loading && <p>Loading...</p>}
+
+        {!loading && files.length === 0 && <p>No files found</p>}
+
+        <ul>
+          {files.map((file) => (
+            <li key={file.id}>📄 {file.name}</li>
+          ))}
+        </ul>
+      </div>
+    </>
   )
 }
 

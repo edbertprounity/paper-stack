@@ -32,3 +32,4 @@ export default buildConfig({
   sharp,
   plugins: [],
 })
+console.log('PAYLOAD CONFIG LOADED')

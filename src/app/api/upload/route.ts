@@ -1,5 +1,6 @@
 import { getDrive } from "@/lib/googleDrive"
 import { Readable } from "stream"
+import payload from 'payload'
 
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -35,14 +36,47 @@ export async function POST(req: Request): Promise<Response> {
         body: Readable.from(buffer),
       },
       supportsAllDrives: true, // Crucial for Shared Drives
-      fields: 'id',
+      fields: 'id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink,createdTime',
     })
 
-    return Response.json({
-      success: true,
-      message: 'File uploaded successfully',
-      fileId: response.data.id,
-    })
+    // Create a record in Payload `media` collection to store metadata
+    try {
+      // payload should be initialized by @payloadcms/next in this environment; if not, this will throw.
+      // Build payload data as `any` to avoid excess-property checks against the Media type
+      const payloadData: any = {
+        alt: file.name,
+        // keep original name as a custom field; cast to `any` so TS won't error if Media type differs
+        name: response.data.name || file.name,
+        driveId: response.data.id,
+        mimeType: response.data.mimeType || file.type,
+        size: response.data.size ? Number(response.data.size) : buffer.length,
+        url: response.data.webViewLink || response.data.webContentLink || '',
+        description: `Uploaded via API on ${new Date().toISOString()}`,
+      }
+
+      const doc = await payload.create({
+        collection: 'media',
+        data: payloadData,
+        // disable validation to allow missing fields if any
+        overrideAccess: true,
+      })
+
+      return Response.json({
+        success: true,
+        message: 'File uploaded and metadata saved',
+        file: response.data,
+        mediaRecord: doc,
+      })
+    } catch (dbError: any) {
+      console.error('Payload save error:', dbError)
+      // Return upload success but indicate metadata save failure
+      return Response.json({
+        success: true,
+        message: 'File uploaded but saving metadata failed',
+        file: response.data,
+        metadataError: String(dbError?.message || dbError),
+      })
+    }
   } catch (error: any) {
     console.error('Drive upload error:', error)
     return Response.json({ error: error.message }, { status: 500 })
