@@ -41,10 +41,13 @@ export default function HomePage() {
     async function fetchFiles() {
       
       try {
+        
         const res = await fetch('/api/files')
         const data = await res.json()
         console.log("RAW API RESPONSE:", data)
         setFiles(data.files || [])
+
+
       } catch (err) {
         console.error('Error loading files:', err)
       } finally {

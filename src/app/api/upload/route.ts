@@ -1,6 +1,9 @@
+export const runtime = "nodejs"
 import { getDrive } from "@/lib/googleDrive"
 import { Readable } from "stream"
 import { getPayloadClient } from '@/payload'
+import { getFeedback } from "@/lib/gemini"
+import { extractPdfText } from "@/lib/pdf"
 
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -25,6 +28,24 @@ export async function POST(req: Request): Promise<Response> {
 
     // Stream the file content
     const buffer = Buffer.from(await file.arrayBuffer())
+    let text = ""
+
+    try {
+      text = await extractPdfText(buffer)
+      console.log("PDF TEXT LENGTH:", text.length)
+    } catch (err) {
+      console.log("PDF parse failed:", err)
+    }
+    let feedback = null
+
+    try {
+      if (text && text.length > 0) {
+        feedback = await getFeedback(text)
+        console.log("GEMINI FEEDBACK:", feedback)
+      }
+    } catch (err) {
+      console.log("Gemini failed:", err)
+    }
 
     const response = await drive.files.create({
       requestBody: {
@@ -38,7 +59,6 @@ export async function POST(req: Request): Promise<Response> {
       supportsAllDrives: true, // Crucial for Shared Drives
       fields: 'id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink,createdTime',
     })
-
     // Create a record in Payload `media` collection to store metadata
     try {
       // payload should be initialized by @payloadcms/next in this environment; if not, this will throw.
@@ -51,7 +71,7 @@ export async function POST(req: Request): Promise<Response> {
         mimeType: response.data.mimeType || file.type,
         size: response.data.size ? Number(response.data.size) : buffer.length,
         url: response.data.webViewLink || response.data.webContentLink || '',
-        description: `Uploaded via API on ${new Date().toISOString()}`,
+        description: `Uploaded via API on ${new Date().toISOString()} \nGEMINI FEEDBACK: ${feedback}`,
       }
 
       const payload = await getPayloadClient()
@@ -60,7 +80,6 @@ export async function POST(req: Request): Promise<Response> {
         collection: 'media',
         data: payloadData,
       })
-
       return Response.json({
         success: true,
         message: 'File uploaded and metadata saved',
