@@ -1,6 +1,6 @@
 import { getDrive } from "@/lib/googleDrive"
 import { Readable } from "stream"
-import payload from 'payload'
+import { getPayloadClient } from '@/payload'
 
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -54,11 +54,11 @@ export async function POST(req: Request): Promise<Response> {
         description: `Uploaded via API on ${new Date().toISOString()}`,
       }
 
+      const payload = await getPayloadClient()
+
       const doc = await payload.create({
         collection: 'media',
         data: payloadData,
-        // disable validation to allow missing fields if any
-        overrideAccess: true,
       })
 
       return Response.json({

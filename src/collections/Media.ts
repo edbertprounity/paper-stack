@@ -46,5 +46,5 @@ export const Media: CollectionConfig = {
       required: false,
     },
   ],
-  upload: true,
+  upload: false,
 }
